@@ -104,12 +104,15 @@ public abstract class AbstractUndoExecutor {
         }
         
         try {
+            // 拼接undoSql的模板
             String undoSQL = buildUndoSQL();
 
             PreparedStatement undoPST = conn.prepareStatement(undoSQL);
 
+            // 获取回滚的记录
             TableRecords undoRows = getUndoRows();
 
+            // 遍历所有待回滚的记录然后一条条的拼接字段
             for (Row undoRow : undoRows.getRows()) {
                 ArrayList<Field> undoValues = new ArrayList<>();
                 Field pkValue = null;
@@ -121,8 +124,10 @@ public abstract class AbstractUndoExecutor {
                     }
                 }
 
+                // 针对每一条回滚记录进行准备
                 undoPrepare(undoPST, undoValues, pkValue);
 
+                // 执行回滚操作
                 undoPST.executeUpdate();
             }
 

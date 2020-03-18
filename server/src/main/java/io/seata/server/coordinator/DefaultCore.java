@@ -117,17 +117,22 @@ public class DefaultCore implements Core {
     @Override
     public String begin(String applicationId, String transactionServiceGroup, String name, int timeout)
         throws TransactionException {
+        // 创建全局GlobalSession对象
         GlobalSession session = GlobalSession.createGlobalSession(
             applicationId, transactionServiceGroup, name, timeout);
+        // 全局GlobalSession对象添加生命周期监听器SessionHolder.getRootSessionManager()
         session.addSessionLifecycleListener(SessionHolder.getRootSessionManager());
 
+        // 启动全局Session对象GlobalSession
         session.begin();
 
+        // 返回新生成的XID返回
         return session.getXid();
     }
 
     @Override
     public GlobalStatus commit(String xid) throws TransactionException {
+        // 1.查找GlobalSession
         GlobalSession globalSession = SessionHolder.findGlobalSession(xid);
         if (globalSession == null) {
             return GlobalStatus.Finished;
@@ -136,6 +141,7 @@ public class DefaultCore implements Core {
         // just lock changeStatus
         boolean shouldCommit = globalSession.lockAndExcute(() -> {
             //the lock should release after branch commit
+            // 2.关闭全局session并执行清理工作
             globalSession.closeAndClean(); // Highlight: Firstly, close the session, then no more branch can be registered.
             if (globalSession.getStatus() == GlobalStatus.Begin) {
                 globalSession.changeStatus(GlobalStatus.Committing);
@@ -146,12 +152,14 @@ public class DefaultCore implements Core {
         if (!shouldCommit){
             return globalSession.getStatus();
         }
+        // 3.执行GlobalCommit通知动作
         if (globalSession.canBeCommittedAsync()) {
             asyncCommit(globalSession);
             return GlobalStatus.Committed;
         } else {
             doGlobalCommit(globalSession, false);
         }
+        // 返回GlobalCommit后的状态
         return globalSession.getStatus();
     }
 
